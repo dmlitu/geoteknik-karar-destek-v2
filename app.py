@@ -24,6 +24,8 @@ if "company_name" not in st.session_state:
 st.title("Geoteknik Karar Destek ve Makine Uygunluk Sistemi V2")
 st.caption("Zemin etüdü + proje verileri + makine parkı ile ön karar motoru")
 
+st.warning("BURASI V2 TEST UYGULAMASI")
+
 if not st.session_state.logged_in:
     st.subheader("Şirket Giriş Paneli")
 
