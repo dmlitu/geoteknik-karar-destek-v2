@@ -15,3 +15,16 @@ def casing_oneri(risk_list):
     if orta >= 2:
         return "Muhafaza borusu şartlı önerilir"
     return "Muhafaza borusu gerekmeyebilir"
+
+
+def genel_risk_ozeti(risk_list):
+    yuksek = risk_list.count("Yüksek")
+    orta = risk_list.count("Orta")
+
+    if yuksek >= 2:
+        return "Kritik riskli saha"
+    if yuksek >= 1 or orta >= 2:
+        return "Orta-yüksek riskli saha"
+    if orta >= 1:
+        return "Kontrollü risk"
+    return "Düşük risk"
