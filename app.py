@@ -133,6 +133,17 @@ with tab4:
     if zemin_df.empty or makina_df.empty:
         st.warning("Lütfen zemin logu ve makine parkı verilerini doldurun.")
     else:
+        # Kritik zemin katmanı analizi
+zemin_df["Zorluk Skoru"] = (
+    zemin_df["SPT"] * 0.5 +
+    zemin_df["UCS (MPa)"] * 2 +
+    (100 - zemin_df["RQD"]) * 0.3
+)
+
+kritik_katman = zemin_df.sort_values(
+    by="Zorluk Skoru",
+    ascending=False
+).iloc[0]
         gerekli_tork = gerekli_tork_hesapla(zemin_df, kazik_capi)
         casing_durum = casing_oneri(list(zemin_df["Stabilite Riski"]))
         casing_gerekli = casing_durum == "Muhafaza borusu gerekli"
@@ -196,6 +207,21 @@ with tab4:
             st.write(f"**Toplam iş süresi:** {toplam_sure_gun} gün")
 
         with right:
+            st.markdown("### Kritik Zemin Katmanı")
+
+st.write(
+f"""
+Formasyon: **{kritik_katman["Formasyon"]}**
+
+Derinlik: **{kritik_katman["Başlangıç (m)"]} - {kritik_katman["Bitiş (m)"]} m**
+
+SPT: **{kritik_katman["SPT"]}**
+
+UCS: **{kritik_katman["UCS (MPa)"]} MPa**
+
+RQD: **{kritik_katman["RQD"]}**
+"""
+)
             st.markdown("### Makine Uygunluk Sonuçları")
             st.dataframe(
                 makina_sonuclari[[
