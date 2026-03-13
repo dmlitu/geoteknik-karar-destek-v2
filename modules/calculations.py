@@ -159,3 +159,26 @@ def makina_uygunluk(row, gerekli_tork, kazik_boyu, kazik_capi, casing_gerekli, d
         return "Riskli", "Tork sınırda"
 
     return "Uygun", "Teknik olarak yeterli"
+
+def stabilite_skoru(zemin_tipi, kohezyon, spt, yeralti_suyu):
+    
+    skor = 0
+
+    if zemin_tipi in ["Kum", "Çakıl"]:
+        skor += 40
+
+    if kohezyon == "Kohezyonsuz":
+        skor += 30
+
+    if spt < 15:
+        skor += 20
+
+    if yeralti_suyu > 0:
+        skor += 10
+
+    if skor < 30:
+        return skor, "Stabil"
+    elif skor < 60:
+        return skor, "Orta Risk"
+    else:
+        return skor, "Yüksek Risk"
