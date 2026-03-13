@@ -231,7 +231,7 @@ with k5:
     renk = "#16a34a" if ortalama_stabilite_skoru < 30 else "#d97706" if ortalama_stabilite_skoru < 60 else "#dc2626"
     st.markdown(durum_karti_html("Stabilite Skoru", f"{ortalama_stabilite_skoru}/100", renk), unsafe_allow_html=True)
 
-        st.markdown("---")
+st.markdown("---")
 
         left, right = st.columns([1.2, 1])
 
