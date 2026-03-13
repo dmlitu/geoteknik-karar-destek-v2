@@ -84,18 +84,23 @@ with tab1:
 with tab2:
     st.subheader("Zemin Logu")
 
-    uploaded_file = st.file_uploader("Zemin logu yükle (CSV veya Excel)", type=["csv","xlsx"])
+    uploaded_file = st.file_uploader(
+        "Zemin logu yükle (CSV veya Excel)",
+        type=["csv", "xlsx"]
+    )
 
-if uploaded_file is not None:
-    if uploaded_file.name.endswith(".csv"):
-        zemin_df = pd.read_csv(uploaded_file)
+    if uploaded_file is not None:
+        if uploaded_file.name.endswith(".csv"):
+            zemin_df = pd.read_csv(uploaded_file)
+        else:
+            zemin_df = pd.read_excel(uploaded_file)
+
+        st.success("Zemin logu başarıyla yüklendi")
     else:
-        zemin_df = pd.read_excel(uploaded_file)
-
-    st.success("Zemin logu başarıyla yüklendi")
+        zemin_df = default_zemin_logu()
 
     zemin_df = st.data_editor(
-        default_zemin_logu(),
+        zemin_df,
         num_rows="dynamic",
         use_container_width=True,
         key="zemin_editor"
@@ -134,16 +139,17 @@ with tab4:
         st.warning("Lütfen zemin logu ve makine parkı verilerini doldurun.")
     else:
         # Kritik zemin katmanı analizi
-zemin_df["Zorluk Skoru"] = (
-    zemin_df["SPT"] * 0.5 +
-    zemin_df["UCS (MPa)"] * 2 +
-    (100 - zemin_df["RQD"]) * 0.3
-)
+        zemin_df["Zorluk Skoru"] = (
+            zemin_df["SPT"] * 0.5 +
+            zemin_df["UCS (MPa)"] * 2 +
+            (100 - zemin_df["RQD"]) * 0.3
+        )
 
-kritik_katman = zemin_df.sort_values(
-    by="Zorluk Skoru",
-    ascending=False
-).iloc[0]
+        kritik_katman = zemin_df.sort_values(
+            by="Zorluk Skoru",
+            ascending=False
+        ).iloc[0]
+
         gerekli_tork = gerekli_tork_hesapla(zemin_df, kazik_capi)
         casing_durum = casing_oneri(list(zemin_df["Stabilite Riski"]))
         casing_gerekli = casing_durum == "Muhafaza borusu gerekli"
@@ -208,9 +214,8 @@ kritik_katman = zemin_df.sort_values(
 
         with right:
             st.markdown("### Kritik Zemin Katmanı")
-
-st.write(
-f"""
+            st.write(
+                f"""
 Formasyon: **{kritik_katman["Formasyon"]}**
 
 Derinlik: **{kritik_katman["Başlangıç (m)"]} - {kritik_katman["Bitiş (m)"]} m**
@@ -221,21 +226,22 @@ UCS: **{kritik_katman["UCS (MPa)"]} MPa**
 
 RQD: **{kritik_katman["RQD"]}**
 """
-)
-            st.markdown("### Makine Uygunluk Sonuçları")
-            st.dataframe(
-                makina_sonuclari[[
-                    "Makine Adı",
-                    "Makine Tipi",
-                    "Max Derinlik (m)",
-                    "Max Çap (mm)",
-                    "Tork (kNm)",
-                    "Casing Yeteneği",
-                    "Karar",
-                    "Gerekçe"
-                ]],
-                use_container_width=True
             )
+
+        st.markdown("### Makine Uygunluk Sonuçları")
+        st.dataframe(
+            makina_sonuclari[[
+                "Makine Adı",
+                "Makine Tipi",
+                "Max Derinlik (m)",
+                "Max Çap (mm)",
+                "Tork (kNm)",
+                "Casing Yeteneği",
+                "Karar",
+                "Gerekçe"
+            ]],
+            use_container_width=True
+        )
 
 with tab5:
     st.subheader("Veri Tabloları")
