@@ -140,7 +140,6 @@ with tab4:
     if zemin_df.empty or makina_df.empty:
         st.warning("Lütfen zemin logu ve makine parkı verilerini doldurun.")
     else:
-        # Kritik zemin katmanı analizi
         zemin_df["Zorluk Skoru"] = (
             zemin_df["SPT"] * 0.5 +
             zemin_df["UCS (MPa)"] * 2 +
@@ -152,18 +151,16 @@ with tab4:
             ascending=False
         ).iloc[0]
 
-        ortalama_stabilite_skoru = 0
-if not zemin_df.empty:
-    skorlar = zemin_df.apply(
-        lambda row: stabilite_skoru(
-            row["Zemin Tipi"],
-            row["Kohezyon Durumu"],
-            row["SPT"],
-            yeralti_suyu
-        )[0],
-        axis=1
-    )
-    ortalama_stabilite_skoru = round(skorlar.mean(), 1)
+        skorlar = zemin_df.apply(
+            lambda row: stabilite_skoru(
+                row["Zemin Tipi"],
+                row["Kohezyon Durumu"],
+                row["SPT"],
+                yeralti_suyu
+            )[0],
+            axis=1
+        )
+        ortalama_stabilite_skoru = round(skorlar.mean(), 1)
 
         gerekli_tork = gerekli_tork_hesapla(zemin_df, kazik_capi)
         casing_durum = casing_oneri(list(zemin_df["Stabilite Riski"]))
@@ -194,12 +191,12 @@ if not zemin_df.empty:
             axis=1
         )
 
-       m1, m2, m3, m4, m5 = st.columns(5)
-       m1.metric("Gerekli Min. Tork", f"{gerekli_tork} kNm")
-       m2.metric("Muhafaza Borusu", casing_durum)
-       m3.metric("1 Kazık Süresi", f"{sure_saat} saat")
-       m4.metric("Tahmini Casing", f"{casing_metre} m")
-       m5.metric("Stabilite Skoru", f"{ortalama_stabilite_skoru}/100")
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Gerekli Min. Tork", f"{gerekli_tork} kNm")
+        m2.metric("Muhafaza Borusu", casing_durum)
+        m3.metric("1 Kazık Süresi", f"{sure_saat} saat")
+        m4.metric("Tahmini Casing", f"{casing_metre} m")
+        m5.metric("Stabilite Skoru", f"{ortalama_stabilite_skoru}/100")
 
         st.markdown("---")
 
@@ -244,20 +241,6 @@ RQD: **{kritik_katman["RQD"]}**
 """
             )
 
-        st.markdown("### Makine Uygunluk Sonuçları")
-        st.dataframe(
-            makina_sonuclari[[
-                "Makine Adı",
-                "Makine Tipi",
-                "Max Derinlik (m)",
-                "Max Çap (mm)",
-                "Tork (kNm)",
-                "Casing Yeteneği",
-                "Karar",
-                "Gerekçe"
-            ]],
-            use_container_width=True
-        )
             pdf_buffer = pdf_olustur(
                 firma_adi=st.session_state.company_name,
                 proje_adi=proje_adi,
@@ -284,6 +267,21 @@ RQD: **{kritik_katman["RQD"]}**
                 file_name=f"{proje_kodu}_yonetici_ozeti.pdf",
                 mime="application/pdf"
             )
+
+        st.markdown("### Makine Uygunluk Sonuçları")
+        st.dataframe(
+            makina_sonuclari[[
+                "Makine Adı",
+                "Makine Tipi",
+                "Max Derinlik (m)",
+                "Max Çap (mm)",
+                "Tork (kNm)",
+                "Casing Yeteneği",
+                "Karar",
+                "Gerekçe"
+            ]],
+            use_container_width=True
+        )
 
 with tab5:
     st.subheader("Veri Tabloları")
