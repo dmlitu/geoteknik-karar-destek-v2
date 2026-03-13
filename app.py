@@ -18,24 +18,36 @@ from modules.ui_helpers import (
     default_makine_parki,
     machine_library,
     durum_karti_html,
-    karar_renk,
 )
 
 st.set_page_config(page_title="Geoteknik Karar Destek Sistemi V2", layout="wide")
 
+# -----------------------------
+# Session state
+# -----------------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 if "company_name" not in st.session_state:
     st.session_state.company_name = ""
 
-st.title("Geoteknik Karar Destek ve Makine Uygunluk Sistemi V2")
-st.caption("Zemin etüdü + proje verileri + makine parkı ile ön karar motoru")
+if "aktif_makine_parki" not in st.session_state:
+    st.session_state.aktif_makine_parki = default_makine_parki()
 
+# -----------------------------
+# Başlık
+# -----------------------------
+st.title("Geoteknik Karar Destek ve Makine Uygunluk Sistemi V2")
+st.caption("Fore kazık işleri için zemin, proje ve makine parkı bazlı ön karar motoru")
+
+# -----------------------------
+# Giriş
+# -----------------------------
 if not st.session_state.logged_in:
     st.subheader("Şirket Giriş Paneli")
 
     col1, col2, col3 = st.columns([1, 1, 1])
+
     with col2:
         username = st.text_input("Kullanıcı Adı")
         password = st.text_input("Şifre", type="password")
@@ -59,6 +71,9 @@ if st.button("Çıkış Yap"):
     st.session_state.company_name = ""
     st.rerun()
 
+# -----------------------------
+# Sekmeler
+# -----------------------------
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Proje Bilgileri",
     "Zemin Logu",
@@ -68,6 +83,9 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Veri Tabloları"
 ])
 
+# -----------------------------
+# TAB 1 - Proje Bilgileri
+# -----------------------------
 with tab1:
     st.subheader("Proje Bilgileri")
 
@@ -77,7 +95,7 @@ with tab1:
         proje_adi = st.text_input("Proje Adı", value="Örnek Kazık Projesi")
         proje_kodu = st.text_input("Proje Kodu", value="PRJ-001")
         saha_kodu = st.text_input("Saha Kodu", value="SH-01")
-        is_tipi = st.selectbox("İş Tipi", ["Fore Kazık", "Ankraj", "Mini Kazık"])
+        is_tipi = st.selectbox("İş Tipi", ["Fore Kazık", "Ankraj"])
 
     with c2:
         kazik_boyu = st.number_input("Kazık Boyu (m)", min_value=1.0, value=18.0, step=1.0)
@@ -90,6 +108,9 @@ with tab1:
         proje_notu = st.text_area("Proje Notu", value="Şantiye koşulları burada tanımlanabilir.")
         teklif_notu = st.text_area("Teklif Notu", value="Teklif açıklamaları burada tutulabilir.")
 
+# -----------------------------
+# TAB 2 - Zemin Logu
+# -----------------------------
 with tab2:
     st.subheader("Zemin Logu")
 
@@ -104,7 +125,7 @@ with tab2:
         else:
             zemin_df = pd.read_excel(uploaded_file)
 
-        st.success("Zemin logu başarıyla yüklendi")
+        st.success("Zemin logu başarıyla yüklendi.")
     else:
         zemin_df = default_zemin_logu()
 
@@ -127,22 +148,32 @@ with tab2:
         )
 
         zemin_df["Uç Önerisi"] = zemin_df.apply(
-            lambda row: uc_oneri(row["Zemin Tipi"], row["UCS (MPa)"]),
+            lambda row: uc_oneri(
+                row["Zemin Tipi"],
+                row["UCS (MPa)"]
+            ),
             axis=1
         )
 
+# -----------------------------
+# TAB 3 - Makine Parkı
+# -----------------------------
 with tab3:
     st.subheader("Makine Parkı")
-
     st.caption("Bu projede kullanılabilecek aktif firma makinelerini düzenleyin.")
 
     makina_df = st.data_editor(
-        default_makine_parki(),
+        st.session_state.aktif_makine_parki,
         num_rows="dynamic",
         use_container_width=True,
         key="makina_editor"
     )
 
+    st.session_state.aktif_makine_parki = makina_df.copy()
+
+# -----------------------------
+# TAB 4 - Makine Kütüphanesi
+# -----------------------------
 with tab4:
     st.subheader("Makine Kütüphanesi")
 
@@ -153,15 +184,19 @@ with tab4:
     st.dataframe(kutuphane[secilen_set], use_container_width=True)
 
     if st.button("Bu seti Makine Parkına Yükle"):
-        st.session_state["makina_editor"] = kutuphane[secilen_set]
-        st.success("Seçilen set makine parkı için referans olarak yüklendi.")
-        
+        st.session_state.aktif_makine_parki = kutuphane[secilen_set].copy()
+        st.success("Seçilen set makine parkına yüklendi. Makine Parkı sekmesinden kontrol edebilirsin.")
+
+# -----------------------------
+# TAB 5 - Analiz Sonucu
+# -----------------------------
 with tab5:
     st.subheader("Analiz Sonucu")
 
     if zemin_df.empty or makina_df.empty:
         st.warning("Lütfen zemin logu ve makine parkı verilerini doldurun.")
     else:
+        # Kritik katman / zorluk
         zemin_df["Zorluk Skoru"] = (
             zemin_df["SPT"] * 0.5 +
             zemin_df["UCS (MPa)"] * 2 +
@@ -184,6 +219,7 @@ with tab5:
         )
         ortalama_stabilite_skoru = round(skorlar.mean(), 1)
 
+        # Teknik hesaplar
         gerekli_tork = gerekli_tork_hesapla(zemin_df, kazik_capi)
         casing_durum = casing_oneri(list(zemin_df["Stabilite Riski"]))
         casing_gerekli = casing_durum == "Muhafaza borusu gerekli"
@@ -199,6 +235,7 @@ with tab5:
         else:
             genel_uc = "Standart uç yeterli"
 
+        # Makine uygunluk analizi
         makina_sonuclari = makina_df.copy()
         makina_sonuclari[["Karar", "Gerekçe"]] = makina_sonuclari.apply(
             lambda row: pd.Series(
@@ -213,25 +250,41 @@ with tab5:
             axis=1
         )
 
+        # Üst dashboard kartları
         k1, k2, k3, k4, k5 = st.columns(5)
 
-with k1:
-    st.markdown(durum_karti_html("Gerekli Min. Tork", f"{gerekli_tork} kNm", "#1d4ed8"), unsafe_allow_html=True)
+        with k1:
+            st.markdown(
+                durum_karti_html("Gerekli Min. Tork", f"{gerekli_tork} kNm", "#1d4ed8"),
+                unsafe_allow_html=True
+            )
 
-with k2:
-    st.markdown(durum_karti_html("Muhafaza Borusu", casing_durum, "#7c3aed"), unsafe_allow_html=True)
+        with k2:
+            st.markdown(
+                durum_karti_html("Muhafaza Borusu", casing_durum, "#7c3aed"),
+                unsafe_allow_html=True
+            )
 
-with k3:
-    st.markdown(durum_karti_html("1 Kazık Süresi", f"{sure_saat} saat", "#0f766e"), unsafe_allow_html=True)
+        with k3:
+            st.markdown(
+                durum_karti_html("1 Kazık Süresi", f"{sure_saat} saat", "#0f766e"),
+                unsafe_allow_html=True
+            )
 
-with k4:
-    st.markdown(durum_karti_html("Tahmini Casing", f"{casing_metre} m", "#b45309"), unsafe_allow_html=True)
+        with k4:
+            st.markdown(
+                durum_karti_html("Tahmini Casing", f"{casing_metre} m", "#b45309"),
+                unsafe_allow_html=True
+            )
 
-with k5:
-    renk = "#16a34a" if ortalama_stabilite_skoru < 30 else "#d97706" if ortalama_stabilite_skoru < 60 else "#dc2626"
-    st.markdown(durum_karti_html("Stabilite Skoru", f"{ortalama_stabilite_skoru}/100", renk), unsafe_allow_html=True)
+        with k5:
+            stabilite_renk = "#16a34a" if ortalama_stabilite_skoru < 30 else "#d97706" if ortalama_stabilite_skoru < 60 else "#dc2626"
+            st.markdown(
+                durum_karti_html("Stabilite Skoru", f"{ortalama_stabilite_skoru}/100", stabilite_renk),
+                unsafe_allow_html=True
+            )
 
-st.markdown("---")
+        st.markdown("---")
 
         left, right = st.columns([1.2, 1])
 
@@ -246,6 +299,7 @@ st.markdown("---")
             st.write(f"**Kazık Çapı:** {kazik_capi} mm")
             st.write(f"**Kazık Adedi:** {kazik_adedi}")
             st.write(f"**Yeraltı Suyu:** {yeralti_suyu} m")
+            st.write(f"**Lokasyon:** {lokasyon}")
 
             st.markdown("### Teknik Öneriler")
             st.write(f"**Uç önerisi:** {genel_uc}")
@@ -301,32 +355,44 @@ RQD: **{kritik_katman["RQD"]}**
                 mime="application/pdf"
             )
 
-uygun_sayi = (makina_sonuclari["Karar"] == "Uygun").sum()
-sartli_sayi = (makina_sonuclari["Karar"] == "Şartlı Uygun").sum()
-riskli_sayi = (makina_sonuclari["Karar"] == "Riskli").sum()
-uygun_degil_sayi = (makina_sonuclari["Karar"] == "Uygun Değil").sum()
+        st.markdown("---")
 
-o1, o2, o3, o4 = st.columns(4)
-o1.markdown(durum_karti_html("Uygun", str(uygun_sayi), "#16a34a"), unsafe_allow_html=True)
-o2.markdown(durum_karti_html("Şartlı Uygun", str(sartli_sayi), "#d97706"), unsafe_allow_html=True)
-o3.markdown(durum_karti_html("Riskli", str(riskli_sayi), "#dc2626"), unsafe_allow_html=True)
-o4.markdown(durum_karti_html("Uygun Değil", str(uygun_degil_sayi), "#6b7280"), unsafe_allow_html=True)
+        uygun_sayi = (makina_sonuclari["Karar"] == "Uygun").sum()
+        sartli_sayi = (makina_sonuclari["Karar"] == "Şartlı Uygun").sum()
+        riskli_sayi = (makina_sonuclari["Karar"] == "Riskli").sum()
+        uygun_degil_sayi = (makina_sonuclari["Karar"] == "Uygun Değil").sum()
+
+        o1, o2, o3, o4 = st.columns(4)
+        with o1:
+            st.markdown(durum_karti_html("Uygun", str(uygun_sayi), "#16a34a"), unsafe_allow_html=True)
+        with o2:
+            st.markdown(durum_karti_html("Şartlı Uygun", str(sartli_sayi), "#d97706"), unsafe_allow_html=True)
+        with o3:
+            st.markdown(durum_karti_html("Riskli", str(riskli_sayi), "#dc2626"), unsafe_allow_html=True)
+        with o4:
+            st.markdown(durum_karti_html("Uygun Değil", str(uygun_degil_sayi), "#6b7280"), unsafe_allow_html=True)
 
         st.markdown("### Makine Uygunluk Sonuçları")
         st.dataframe(
             makina_sonuclari[[
                 "Makine Adı",
                 "Makine Tipi",
+                "Marka/Model",
                 "Max Derinlik (m)",
                 "Max Çap (mm)",
                 "Tork (kNm)",
                 "Casing Yeteneği",
+                "Dar Alan Uygunluğu",
+                "Yakıt Sınıfı",
                 "Karar",
                 "Gerekçe"
             ]],
             use_container_width=True
         )
 
+# -----------------------------
+# TAB 6 - Veri Tabloları
+# -----------------------------
 with tab6:
     st.subheader("Veri Tabloları")
 
