@@ -13,7 +13,13 @@ from modules.calculations import (
 )
 from modules.reporting import pdf_olustur
 from modules.recommendations import uc_oneri, casing_oneri
-from modules.ui_helpers import default_zemin_logu, default_makine_parki
+from modules.ui_helpers import (
+    default_zemin_logu,
+    default_makine_parki,
+    machine_library,
+    durum_karti_html,
+    karar_renk,
+)
 
 st.set_page_config(page_title="Geoteknik Karar Destek Sistemi V2", layout="wide")
 
@@ -53,10 +59,11 @@ if st.button("Çıkış Yap"):
     st.session_state.company_name = ""
     st.rerun()
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Proje Bilgileri",
     "Zemin Logu",
     "Makine Parkı",
+    "Makine Kütüphanesi",
     "Analiz Sonucu",
     "Veri Tabloları"
 ])
@@ -127,6 +134,8 @@ with tab2:
 with tab3:
     st.subheader("Makine Parkı")
 
+    st.caption("Bu projede kullanılabilecek aktif firma makinelerini düzenleyin.")
+
     makina_df = st.data_editor(
         default_makine_parki(),
         num_rows="dynamic",
@@ -135,6 +144,19 @@ with tab3:
     )
 
 with tab4:
+    st.subheader("Makine Kütüphanesi")
+
+    kutuphane = machine_library()
+    secilen_set = st.selectbox("Hazır makine seti seç", list(kutuphane.keys()))
+
+    st.markdown("### Kütüphane İçeriği")
+    st.dataframe(kutuphane[secilen_set], use_container_width=True)
+
+    if st.button("Bu seti Makine Parkına Yükle"):
+        st.session_state["makina_editor"] = kutuphane[secilen_set]
+        st.success("Seçilen set makine parkı için referans olarak yüklendi.")
+        
+with tab5:
     st.subheader("Analiz Sonucu")
 
     if zemin_df.empty or makina_df.empty:
@@ -191,12 +213,23 @@ with tab4:
             axis=1
         )
 
-        m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("Gerekli Min. Tork", f"{gerekli_tork} kNm")
-        m2.metric("Muhafaza Borusu", casing_durum)
-        m3.metric("1 Kazık Süresi", f"{sure_saat} saat")
-        m4.metric("Tahmini Casing", f"{casing_metre} m")
-        m5.metric("Stabilite Skoru", f"{ortalama_stabilite_skoru}/100")
+        k1, k2, k3, k4, k5 = st.columns(5)
+
+with k1:
+    st.markdown(durum_karti_html("Gerekli Min. Tork", f"{gerekli_tork} kNm", "#1d4ed8"), unsafe_allow_html=True)
+
+with k2:
+    st.markdown(durum_karti_html("Muhafaza Borusu", casing_durum, "#7c3aed"), unsafe_allow_html=True)
+
+with k3:
+    st.markdown(durum_karti_html("1 Kazık Süresi", f"{sure_saat} saat", "#0f766e"), unsafe_allow_html=True)
+
+with k4:
+    st.markdown(durum_karti_html("Tahmini Casing", f"{casing_metre} m", "#b45309"), unsafe_allow_html=True)
+
+with k5:
+    renk = "#16a34a" if ortalama_stabilite_skoru < 30 else "#d97706" if ortalama_stabilite_skoru < 60 else "#dc2626"
+    st.markdown(durum_karti_html("Stabilite Skoru", f"{ortalama_stabilite_skoru}/100", renk), unsafe_allow_html=True)
 
         st.markdown("---")
 
@@ -268,6 +301,17 @@ RQD: **{kritik_katman["RQD"]}**
                 mime="application/pdf"
             )
 
+uygun_sayi = (makina_sonuclari["Karar"] == "Uygun").sum()
+sartli_sayi = (makina_sonuclari["Karar"] == "Şartlı Uygun").sum()
+riskli_sayi = (makina_sonuclari["Karar"] == "Riskli").sum()
+uygun_degil_sayi = (makina_sonuclari["Karar"] == "Uygun Değil").sum()
+
+o1, o2, o3, o4 = st.columns(4)
+o1.markdown(durum_karti_html("Uygun", str(uygun_sayi), "#16a34a"), unsafe_allow_html=True)
+o2.markdown(durum_karti_html("Şartlı Uygun", str(sartli_sayi), "#d97706"), unsafe_allow_html=True)
+o3.markdown(durum_karti_html("Riskli", str(riskli_sayi), "#dc2626"), unsafe_allow_html=True)
+o4.markdown(durum_karti_html("Uygun Değil", str(uygun_degil_sayi), "#6b7280"), unsafe_allow_html=True)
+
         st.markdown("### Makine Uygunluk Sonuçları")
         st.dataframe(
             makina_sonuclari[[
@@ -283,7 +327,7 @@ RQD: **{kritik_katman["RQD"]}**
             use_container_width=True
         )
 
-with tab5:
+with tab6:
     st.subheader("Veri Tabloları")
 
     st.markdown("### Zemin Logu")
