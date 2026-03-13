@@ -9,7 +9,9 @@ from modules.calculations import (
     tahmini_kazik_suresi,
     mazot_tahmini,
     makina_uygunluk,
+    stabilite_skoru,
 )
+from modules.reporting import pdf_olustur
 from modules.recommendations import uc_oneri, casing_oneri
 from modules.ui_helpers import default_zemin_logu, default_makine_parki
 
@@ -150,6 +152,19 @@ with tab4:
             ascending=False
         ).iloc[0]
 
+        ortalama_stabilite_skoru = 0
+if not zemin_df.empty:
+    skorlar = zemin_df.apply(
+        lambda row: stabilite_skoru(
+            row["Zemin Tipi"],
+            row["Kohezyon Durumu"],
+            row["SPT"],
+            yeralti_suyu
+        )[0],
+        axis=1
+    )
+    ortalama_stabilite_skoru = round(skorlar.mean(), 1)
+
         gerekli_tork = gerekli_tork_hesapla(zemin_df, kazik_capi)
         casing_durum = casing_oneri(list(zemin_df["Stabilite Riski"]))
         casing_gerekli = casing_durum == "Muhafaza borusu gerekli"
@@ -179,11 +194,12 @@ with tab4:
             axis=1
         )
 
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Gerekli Min. Tork", f"{gerekli_tork} kNm")
-        m2.metric("Muhafaza Borusu", casing_durum)
-        m3.metric("1 Kazık Süresi", f"{sure_saat} saat")
-        m4.metric("Tahmini Casing", f"{casing_metre} m")
+       m1, m2, m3, m4, m5 = st.columns(5)
+       m1.metric("Gerekli Min. Tork", f"{gerekli_tork} kNm")
+       m2.metric("Muhafaza Borusu", casing_durum)
+       m3.metric("1 Kazık Süresi", f"{sure_saat} saat")
+       m4.metric("Tahmini Casing", f"{casing_metre} m")
+       m5.metric("Stabilite Skoru", f"{ortalama_stabilite_skoru}/100")
 
         st.markdown("---")
 
@@ -242,6 +258,32 @@ RQD: **{kritik_katman["RQD"]}**
             ]],
             use_container_width=True
         )
+            pdf_buffer = pdf_olustur(
+                firma_adi=st.session_state.company_name,
+                proje_adi=proje_adi,
+                proje_kodu=proje_kodu,
+                saha_kodu=saha_kodu,
+                is_tipi=is_tipi,
+                kazik_boyu=kazik_boyu,
+                kazik_capi=kazik_capi,
+                kazik_adedi=kazik_adedi,
+                yeralti_suyu=yeralti_suyu,
+                gerekli_tork=gerekli_tork,
+                casing_durum=casing_durum,
+                casing_metre=casing_metre,
+                sure_saat=sure_saat,
+                metre_basi_mazot=metre_basi_mazot,
+                toplam_mazot=toplam_mazot,
+                genel_uc=genel_uc,
+                kritik_katman=kritik_katman
+            )
+
+            st.download_button(
+                label="PDF Rapor Oluştur",
+                data=pdf_buffer,
+                file_name=f"{proje_kodu}_yonetici_ozeti.pdf",
+                mime="application/pdf"
+            )
 
 with tab5:
     st.subheader("Veri Tabloları")
