@@ -182,3 +182,31 @@ def stabilite_skoru(zemin_tipi, kohezyon, spt, yeralti_suyu):
         return skor, "Orta Risk"
     else:
         return skor, "Yüksek Risk"
+        
+def stabilite_skoru(zemin_tipi: str, kohezyon: str, spt: float, yeralti_suyu: float):
+    skor = 0
+
+    if zemin_tipi in ["Kum", "Çakıl", "Dolgu"]:
+        skor += 35
+
+    if kohezyon == "Kohezyonsuz":
+        skor += 25
+
+    if spt <= 15:
+        skor += 20
+    elif spt <= 30:
+        skor += 10
+
+    if yeralti_suyu > 0:
+        skor += 15
+
+    skor = min(skor, 100)
+
+    if skor < 30:
+        durum = "Stabil"
+    elif skor < 60:
+        durum = "Orta Risk"
+    else:
+        durum = "Yüksek Risk"
+
+    return skor, durum
