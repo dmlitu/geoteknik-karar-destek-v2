@@ -81,6 +81,14 @@ with tab1:
         proje_notu = st.text_area("Proje Notu", value="Şantiye koşulları burada tanımlanabilir.")
         teklif_notu = st.text_area("Teklif Notu", value="Teklif açıklamaları burada tutulabilir.")
 
+uploaded_file = st.file_uploader("Zemin logu yükle (CSV veya Excel)", type=["csv","xlsx"])
+
+if uploaded_file is not None:
+    if uploaded_file.name.endswith(".csv"):
+        zemin_df = pd.read_csv(uploaded_file)
+    else:
+        zemin_df = pd.read_excel(uploaded_file)
+        
 with tab2:
     st.subheader("Zemin Logu")
 
