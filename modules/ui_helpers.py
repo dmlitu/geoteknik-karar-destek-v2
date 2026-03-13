@@ -176,18 +176,9 @@ def durum_karti_html(baslik, deger, renk):
         flex-direction:column;
         justify-content:center;
         box-shadow:0 4px 14px rgba(0,0,0,0.12);
+        margin-bottom:8px;
     ">
         <div style="font-size:15px; opacity:0.9;">{baslik}</div>
         <div style="font-size:24px; font-weight:700; margin-top:8px;">{deger}</div>
     </div>
     """
-
-
-def karar_renk(karar):
-    if karar == "Uygun":
-        return "#16a34a"
-    if karar == "Şartlı Uygun":
-        return "#d97706"
-    if karar == "Riskli":
-        return "#dc2626"
-    return "#6b7280"
