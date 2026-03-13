@@ -41,8 +41,7 @@ def gerekli_tork_hesapla(df: pd.DataFrame, cap_mm: float) -> float:
         max_tork = max(max_tork, katman_tork)
 
     cap_carpani = cap_mm / 1000.0
-    gerekli_tork = max_tork * cap_carpani
-    return round(gerekli_tork, 1)
+    return round(max_tork * cap_carpani, 1)
 
 
 def stabilite_riski(zemin_tipi: str, kohezyon: str, yeralti_suyu: float, spt: float) -> str:
@@ -104,13 +103,40 @@ def tahmini_kazik_suresi(df: pd.DataFrame, cap_mm: float, kazik_boyu: float, cas
     return round(sure, 1)
 
 
-def mazot_tahmini(gerekli_tork: float, kazik_boyu: float):
-    metre_basi = round(8 + gerekli_tork * 0.08, 1)
+def mazot_tahmini(gerekli_tork: float, kazik_boyu: float, yakit_sinifi: str = "Orta"):
+    metre_basi = 8 + gerekli_tork * 0.08
+
+    if yakit_sinifi == "Düşük":
+        metre_basi *= 0.9
+    elif yakit_sinifi == "Yüksek":
+        metre_basi *= 1.15
+
+    metre_basi = round(metre_basi, 1)
     toplam = round(metre_basi * kazik_boyu, 1)
     return metre_basi, toplam
 
 
-def makina_uygunluk(row, gerekli_tork, kazik_boyu, kazik_capi, casing_gerekli):
+def ekonomik_uygunluk(row, gerekli_tork):
+    oran = row["Tork (kNm)"] / max(gerekli_tork, 1)
+
+    if oran > 2.2:
+        return "Teknik olarak uygun ama ekonomik değil"
+    if oran < 1.0:
+        return "Sınırda ekonomik"
+    return "Ekonomik olarak uygun"
+
+
+def saha_dogrulama_gerekli(yeralti_suyu, dar_alan, yakin_yapi, kritik_risk_sayisi):
+    if yakin_yapi == "Evet" or dar_alan == "Evet":
+        return "Evet"
+    if yeralti_suyu <= 3:
+        return "Evet"
+    if kritik_risk_sayisi >= 2:
+        return "Evet"
+    return "Hayır"
+
+
+def makina_uygunluk(row, gerekli_tork, kazik_boyu, kazik_capi, casing_gerekli, dar_alan=False, min_mast=10):
     if row["Max Derinlik (m)"] < kazik_boyu:
         return "Uygun Değil", "Derinlik yetersiz"
 
@@ -122,6 +148,12 @@ def makina_uygunluk(row, gerekli_tork, kazik_boyu, kazik_capi, casing_gerekli):
 
     if casing_gerekli and row["Casing Yeteneği"] == "Hayır":
         return "Şartlı Uygun", "Makine yeterli ancak casing yeteneği yok"
+
+    if dar_alan and row["Dar Alan Uygunluğu"] == "Hayır":
+        return "Şartlı Uygun", "Dar alan çalışmasına uygun değil"
+
+    if row["Mast Yüksekliği (m)"] < min_mast:
+        return "Riskli", "Mast yüksekliği sınırda"
 
     if row["Tork (kNm)"] < gerekli_tork:
         return "Riskli", "Tork sınırda"
