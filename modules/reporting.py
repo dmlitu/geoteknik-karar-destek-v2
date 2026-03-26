@@ -7,16 +7,13 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_LEFT
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import os
 
 
 def _font_kaydet():
-    """DejaVu fontunu kaydet — Türkçe karakter desteği için."""
     try:
-        # Streamlit Cloud'da DejaVu genellikle bu yolda bulunur
         font_yollari = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -25,7 +22,6 @@ def _font_kaydet():
         ]
         normal_bulundu = False
         bold_bulundu = False
-
         for yol in font_yollari:
             if os.path.exists(yol) and "Bold" not in yol and not normal_bulundu:
                 pdfmetrics.registerFont(TTFont("DejaVu", yol))
@@ -33,7 +29,6 @@ def _font_kaydet():
             elif os.path.exists(yol) and "Bold" in yol and not bold_bulundu:
                 pdfmetrics.registerFont(TTFont("DejaVu-Bold", yol))
                 bold_bulundu = True
-
         if normal_bulundu and bold_bulundu:
             return "DejaVu", "DejaVu-Bold"
     except Exception:
@@ -51,12 +46,9 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=2*cm,
-        leftMargin=2*cm,
-        topMargin=2*cm,
-        bottomMargin=2*cm
+        buffer, pagesize=A4,
+        rightMargin=2*cm, leftMargin=2*cm,
+        topMargin=2*cm, bottomMargin=2*cm
     )
 
     baslik_stil = ParagraphStyle(
@@ -95,12 +87,14 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
 
     story = []
 
+    # Başlık
     story.append(Paragraph("Geoteknik Karar Destek Sistemi", baslik_stil))
-    story.append(Paragraph("Ön Yeterlilik ve Makine Uygunluk Raporu", ParagraphStyle(
+    story.append(Paragraph("On Yeterlilik ve Makine Uygunluk Raporu", ParagraphStyle(
         "sub", fontSize=10, fontName=normal_font,
         textColor=colors.HexColor("#64748b"), spaceAfter=4
     )))
-    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#1d4ed8"), spaceAfter=10))
+    story.append(HRFlowable(width="100%", thickness=1.5,
+                             color=colors.HexColor("#1d4ed8"), spaceAfter=10))
 
     # 1. Proje Bilgileri
     story.append(Paragraph("1. Proje Bilgileri", alt_baslik_stil))
@@ -131,31 +125,29 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
     story.append(t2)
     story.append(Spacer(1, 10))
 
-    # 3. Kritik Zemin Katmanı
+    # 3. Kritik Zemin Katmanı — güvenli erişim
     story.append(Paragraph("3. Kritik Zemin Katmani", alt_baslik_stil))
+
+    def safe_get(d, *keys):
+        for k in keys:
+            try:
+                return d[k]
+            except (KeyError, TypeError):
+                continue
+        return "?"
+
+    k_formasyon = safe_get(kritik_katman, "Formasyon")
+    k_baslangic = safe_get(kritik_katman, "Başlangıç (m)", "Baslangic (m)")
+    k_bitis = safe_get(kritik_katman, "Bitiş (m)", "Bitis (m)")
+    k_spt = safe_get(kritik_katman, "SPT")
+    k_ucs = safe_get(kritik_katman, "UCS (MPa)")
+    k_rqd = safe_get(kritik_katman, "RQD")
+
     kritik_data = [
         ["Formasyon", "Derinlik", "SPT", "UCS (MPa)", "RQD"],
-        [
-            str(kritik_katman["Formasyon"]),
-            f"{kritik_katman['Baslangi\u00e7 (m)']} - {kritik_katman['Bitis (m)']} m"
-            if 'Baslangi\u00e7 (m)' not in kritik_katman
-            else f"{kritik_katman['Başlangıç (m)']} - {kritik_katman['Bitiş (m)']} m",
-            str(kritik_katman["SPT"]),
-            str(kritik_katman["UCS (MPa)"]),
-            str(kritik_katman["RQD"]),
-        ]
+        [str(k_formasyon), f"{k_baslangic} - {k_bitis} m",
+         str(k_spt), str(k_ucs), str(k_rqd)]
     ]
-
-    # Derinlik alanı için güvenli erişim
-    try:
-        baslangic = kritik_katman["Başlangıç (m)"]
-        bitis = kritik_katman["Bitiş (m)"]
-    except KeyError:
-        baslangic = kritik_katman.get("Baslangic (m)", "?")
-        bitis = kritik_katman.get("Bitis (m)", "?")
-
-    kritik_data[1][1] = f"{baslangic} - {bitis} m"
-
     t3 = Table(kritik_data, colWidths=[3.5*cm, 4*cm, 2.5*cm, 3*cm, 3*cm])
     t3.setStyle(tablo_stili("#b45309"))
     story.append(t3)
@@ -167,31 +159,28 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
         zemin_cols = ["Başlangıç (m)", "Bitiş (m)", "Formasyon", "Zemin Tipi",
                       "SPT", "UCS (MPa)", "RQD", "Stabilite Riski"]
         mevcut_cols = [c for c in zemin_cols if c in zemin_df.columns]
-        # Başlık satırını ASCII'ye çevir
-        baslik_row = [c.replace("Başlangıç", "Baslangic").replace("Bitiş", "Bitis")
-                      .replace("Zemin Tipi", "Zemin Tipi").replace("Stabilite Riski", "Stabilite")
-                      for c in mevcut_cols]
+        baslik_row = ["Baslangic(m)", "Bitis(m)", "Formasyon", "Zemin Tipi",
+                      "SPT", "UCS(MPa)", "RQD", "Stabilite"][:len(mevcut_cols)]
         zemin_data = [baslik_row]
         for _, row in zemin_df.iterrows():
             zemin_data.append([str(row[c]) for c in mevcut_cols])
-
         col_w = 17*cm / len(mevcut_cols)
         t4 = Table(zemin_data, colWidths=[col_w] * len(mevcut_cols))
-        stil4 = tablo_stili("#374151")
-        t4.setStyle(stil4)
+        t4.setStyle(tablo_stili("#374151"))
         story.append(t4)
         story.append(Spacer(1, 10))
 
     # 5. Makine Uygunluk
     if makina_sonuclari is not None and not makina_sonuclari.empty:
         story.append(Paragraph("5. Makine Uygunluk Sonuclari", alt_baslik_stil))
-        mak_cols = ["Makine Adı", "Marka/Model", "Tork (kNm)", "Max Derinlik (m)", "Karar", "Gerekçe"]
+        mak_cols = ["Makine Adı", "Marka/Model", "Tork (kNm)",
+                    "Max Derinlik (m)", "Karar", "Gerekçe"]
         mevcut_mak = [c for c in mak_cols if c in makina_sonuclari.columns]
-        baslik_mak = ["Makine", "Marka/Model", "Tork (kNm)", "Max Derinlik (m)", "Karar", "Gerekcesi"][:len(mevcut_mak)]
+        baslik_mak = ["Makine", "Marka/Model", "Tork(kNm)",
+                      "Max Derinlik(m)", "Karar", "Gerekce"][:len(mevcut_mak)]
         mak_data = [baslik_mak]
         for _, row in makina_sonuclari.iterrows():
             mak_data.append([str(row[c]) for c in mevcut_mak])
-
         col_w2 = 17*cm / len(mevcut_mak)
         t5 = Table(mak_data, colWidths=[col_w2] * len(mevcut_mak))
         stil5 = tablo_stili("#1e3a5f")
@@ -202,7 +191,7 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
                 if karar == "Uygun":
                     stil5.add("BACKGROUND", (idx2, i+1), (idx2, i+1), colors.HexColor("#dcfce7"))
                     stil5.add("TEXTCOLOR", (idx2, i+1), (idx2, i+1), colors.HexColor("#15803d"))
-                elif karar in ["Sartli Uygun", "Şartlı Uygun", "Riskli"]:
+                elif karar in ["Şartlı Uygun", "Riskli"]:
                     stil5.add("BACKGROUND", (idx2, i+1), (idx2, i+1), colors.HexColor("#fef9c3"))
                     stil5.add("TEXTCOLOR", (idx2, i+1), (idx2, i+1), colors.HexColor("#b45309"))
                 else:
@@ -216,14 +205,14 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
     if casing_gerekce:
         story.append(Paragraph("6. Muhafaza Borusu Degerlendirmesi", alt_baslik_stil))
         for g in casing_gerekce:
-            # Türkçe karakterleri koru ama sorunlu olanları temizle
             story.append(Paragraph(f"- {g}", normal_stil))
         story.append(Spacer(1, 8))
 
     # Footer
-    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cbd5e1"), spaceBefore=10))
+    story.append(HRFlowable(width="100%", thickness=0.5,
+                             color=colors.HexColor("#cbd5e1"), spaceBefore=10))
     story.append(Paragraph(
-        f"Bu rapor Geoteknik Karar Destek Sistemi tarafindan otomatik olusturulmustur. "
+        f"Bu rapor Geoteknik Karar Destek Sistemi tarafindan olusturulmustur. "
         f"Tarih: {date.today()} | Firma: {firma_adi}",
         kucuk_stil
     ))
