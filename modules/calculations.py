@@ -62,8 +62,9 @@ def gerekli_tork_hesapla(df: pd.DataFrame, cap_mm: float) -> float:
     - RQD etkisi (kaya kalitesi)
     - Çap etkisi: tork çap^2 ile orantılı artar
     """
-    cap_m = cap_mm / 1000.0
-    max_tork = 0
+    cap_m = cap_mm / 1.8
+    gerekli_tork = max_tork * cap_carpani
+    return round(gerekli_tork, 1)
 
     for _, row in df.iterrows():
         baz = zemin_tork_katsayisi(row["Zemin Tipi"])
