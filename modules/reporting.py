@@ -14,28 +14,18 @@ import urllib.request
 
 
 def _font_kaydet():
+    """
+    Streamlit Cloud'da Türkçe karakter desteği için
+    reportlab'ın built-in cp1252 encoding'ini kullanıyoruz.
+    """
     try:
-        font_path = "/tmp/DejaVuSans.ttf"
-        font_bold_path = "/tmp/DejaVuSans-Bold.ttf"
-
-        if not os.path.exists(font_path):
-            urllib.request.urlretrieve(
-                "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf",
-                font_path
-            )
-        if not os.path.exists(font_bold_path):
-            urllib.request.urlretrieve(
-                "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf",
-                font_bold_path
-            )
-
-        pdfmetrics.registerFont(TTFont("DejaVu", font_path))
-        pdfmetrics.registerFont(TTFont("DejaVu-Bold", font_bold_path))
-        return "DejaVu", "DejaVu-Bold"
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        pdfmetrics.registerFont(UnicodeCIDFont("HeiseiMin-W3"))
+        return "HeiseiMin-W3", "HeiseiMin-W3"
     except Exception:
         pass
     return "Helvetica", "Helvetica-Bold"
-
+   
 
 def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
                 kazik_boyu, kazik_capi, kazik_adedi, yeralti_suyu,
