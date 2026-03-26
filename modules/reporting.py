@@ -7,41 +7,22 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 )
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-import os
-import urllib.request
 
 
-def _font_kaydet():
-    """
-    Streamlit Cloud'da Türkçe karakter desteği için
-    reportlab'ın built-in cp1252 encoding'ini kullanıyoruz.
-    """
-    try:
-        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-        pdfmetrics.registerFont(UnicodeCIDFont("HeiseiMin-W3"))
-        return "HeiseiMin-W3", "HeiseiMin-W3"
-    except Exception:
-        pass
-    return "Helvetica", "Helvetica-Bold"
-    
-    def _tr(metin: str) -> str:
+def _tr(metin) -> str:
     """Türkçe karakterleri ASCII'ye çevirir — PDF uyumluluğu için."""
     tablo = str.maketrans(
         "çğıöşüÇĞİÖŞÜ",
         "cgiosuCGIOSU"
     )
     return str(metin).translate(tablo)
-   
+
 
 def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
                 kazik_boyu, kazik_capi, kazik_adedi, yeralti_suyu,
                 gerekli_tork, casing_durum, casing_metre, sure_saat,
                 metre_basi_mazot, toplam_mazot, genel_uc, kritik_katman,
                 zemin_df=None, makina_sonuclari=None, casing_gerekce=None):
-
-    normal_font, bold_font = _font_kaydet()
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -51,19 +32,19 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
     )
 
     baslik_stil = ParagraphStyle(
-        "baslik", fontSize=16, fontName=bold_font,
+        "baslik", fontSize=16, fontName="Helvetica-Bold",
         textColor=colors.HexColor("#1d4ed8"), spaceAfter=6
     )
     alt_baslik_stil = ParagraphStyle(
-        "alt_baslik", fontSize=12, fontName=bold_font,
+        "alt_baslik", fontSize=12, fontName="Helvetica-Bold",
         textColor=colors.HexColor("#1e293b"), spaceBefore=14, spaceAfter=4
     )
     normal_stil = ParagraphStyle(
-        "normal", fontSize=9, fontName=normal_font,
+        "normal", fontSize=9, fontName="Helvetica",
         textColor=colors.HexColor("#334155"), spaceAfter=3
     )
     kucuk_stil = ParagraphStyle(
-        "kucuk", fontSize=8, fontName=normal_font,
+        "kucuk", fontSize=8, fontName="Helvetica",
         textColor=colors.HexColor("#64748b"), spaceAfter=2
     )
 
@@ -71,9 +52,9 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
         return TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(header_renk)),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), bold_font),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, 0), 8),
-            ("FONTNAME", (0, 1), (-1, -1), normal_font),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
             ("FONTSIZE", (0, 1), (-1, -1), 8),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#f8fafc"), colors.white]),
             ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
@@ -89,7 +70,7 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
     # Başlık
     story.append(Paragraph("Geoteknik Karar Destek Sistemi", baslik_stil))
     story.append(Paragraph("On Yeterlilik ve Makine Uygunluk Raporu", ParagraphStyle(
-        "sub", fontSize=10, fontName=normal_font,
+        "sub", fontSize=10, fontName="Helvetica",
         textColor=colors.HexColor("#64748b"), spaceAfter=4
     )))
     story.append(HRFlowable(width="100%", thickness=1.5,
@@ -99,9 +80,9 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
     story.append(Paragraph("1. Proje Bilgileri", alt_baslik_stil))
     proje_data = [
         ["Alan", "Deger", "Alan", "Deger"],
-        ["Firma", firma_adi, "Proje Adi", proje_adi],
-        ["Proje Kodu", proje_kodu, "Saha Kodu", saha_kodu],
-        ["Is Tipi", is_tipi, "Tarih", str(date.today())],
+        ["Firma", _tr(firma_adi), "Proje Adi", _tr(proje_adi)],
+        ["Proje Kodu", _tr(proje_kodu), "Saha Kodu", _tr(saha_kodu)],
+        ["Is Tipi", _tr(is_tipi), "Tarih", str(date.today())],
         ["Kazik Boyu", f"{kazik_boyu} m", "Kazik Capi", f"{kazik_capi} mm"],
         ["Kazik Adedi", str(int(kazik_adedi)), "Yeralti Suyu", f"{yeralti_suyu} m"],
     ]
@@ -115,8 +96,8 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
     ozet_data = [
         ["Parametre", "Deger", "Parametre", "Deger"],
         ["Gerekli Min. Tork", f"{gerekli_tork} kNm", "1 Kazik Suresi", f"{sure_saat} saat"],
-        ["Muhafaza Borusu", casing_durum, "Tahmini Casing", f"{casing_metre} m"],
-        ["Uc Onerisi", genel_uc, "Metre Basi Mazot", f"{metre_basi_mazot} L/m"],
+        ["Muhafaza Borusu", _tr(casing_durum), "Tahmini Casing", f"{casing_metre} m"],
+        ["Uc Onerisi", _tr(genel_uc), "Metre Basi Mazot", f"{metre_basi_mazot} L/m"],
         ["Toplam Mazot/Kazik", f"{toplam_mazot} L", "Toplam Mazot",
          f"{round(toplam_mazot * kazik_adedi, 0)} L"],
     ]
@@ -145,7 +126,7 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
 
     kritik_data = [
         ["Formasyon", "Derinlik", "SPT", "UCS (MPa)", "RQD"],
-        [str(k_formasyon), f"{k_baslangic} - {k_bitis} m",
+        [_tr(k_formasyon), f"{k_baslangic} - {k_bitis} m",
          str(k_spt), str(k_ucs), str(k_rqd)]
     ]
     t3 = Table(kritik_data, colWidths=[3.5*cm, 4*cm, 2.5*cm, 3*cm, 3*cm])
@@ -163,10 +144,20 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
                       "SPT", "UCS(MPa)", "RQD", "Stabilite"][:len(mevcut_cols)]
         zemin_data = [baslik_row]
         for _, row in zemin_df.iterrows():
-            zemin_data.append([str(row[c]) for c in mevcut_cols])
+            zemin_data.append([_tr(row[c]) for c in mevcut_cols])
         col_w = 17*cm / len(mevcut_cols)
         t4 = Table(zemin_data, colWidths=[col_w] * len(mevcut_cols))
-        t4.setStyle(tablo_stili("#374151"))
+        stil4 = tablo_stili("#374151")
+        # Stabilite renklendir
+        if "Stabilite Riski" in mevcut_cols:
+            idx = mevcut_cols.index("Stabilite Riski")
+            for i in range(len(zemin_df)):
+                stab = zemin_df.iloc[i].get("Stabilite Riski", "")
+                if stab == "Yüksek":
+                    stil4.add("BACKGROUND", (idx, i+1), (idx, i+1), colors.HexColor("#fee2e2"))
+                elif stab == "Orta":
+                    stil4.add("BACKGROUND", (idx, i+1), (idx, i+1), colors.HexColor("#fef9c3"))
+        t4.setStyle(stil4)
         story.append(t4)
         story.append(Spacer(1, 10))
 
@@ -180,7 +171,7 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
                       "Max Derinlik(m)", "Karar", "Gerekce"][:len(mevcut_mak)]
         mak_data = [baslik_mak]
         for _, row in makina_sonuclari.iterrows():
-            mak_data.append([str(row[c]) for c in mevcut_mak])
+            mak_data.append([_tr(row[c]) for c in mevcut_mak])
         col_w2 = 17*cm / len(mevcut_mak)
         t5 = Table(mak_data, colWidths=[col_w2] * len(mevcut_mak))
         stil5 = tablo_stili("#1e3a5f")
@@ -205,7 +196,7 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
     if casing_gerekce:
         story.append(Paragraph("6. Muhafaza Borusu Degerlendirmesi", alt_baslik_stil))
         for g in casing_gerekce:
-            story.append(Paragraph(f"- {g}", normal_stil))
+            story.append(Paragraph(f"- {_tr(g)}", normal_stil))
         story.append(Spacer(1, 8))
 
     # Footer
@@ -213,7 +204,7 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
                              color=colors.HexColor("#cbd5e1"), spaceBefore=10))
     story.append(Paragraph(
         f"Bu rapor Geoteknik Karar Destek Sistemi tarafindan olusturulmustur. "
-        f"Tarih: {date.today()} | Firma: {firma_adi}",
+        f"Tarih: {date.today()} | Firma: {_tr(firma_adi)}",
         kucuk_stil
     ))
 
