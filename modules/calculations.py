@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def zemin_tork_katsayisi(zemin_tipi: str) -> int:
+def zemin_tork_katsayisi(zemin_tipi: str) -> float:
     mapping = {
         "Dolgu": 40,
         "Kil": 55,
@@ -16,34 +16,6 @@ def zemin_tork_katsayisi(zemin_tipi: str) -> int:
     return mapping.get(zemin_tipi, 60)
 
 
-def gerekli_tork_hesapla(df: pd.DataFrame, cap_mm: float) -> float:
-    max_tork = 0
-
-    for _, row in df.iterrows():
-        baz = zemin_tork_katsayisi(row["Zemin Tipi"])
-        spt = float(row["SPT"]) if pd.notna(row["SPT"]) else 0
-        ucs = float(row["UCS (MPa)"]) if pd.notna(row["UCS (MPa)"]) else 0
-        rqd = float(row["RQD"]) if pd.notna(row["RQD"]) else 0
-
-        spt_etki = min(spt, 60) * 0.8
-        ucs_etki = ucs * 1.8
-
-        if rqd == 0:
-            rqd_etki = 0
-        elif rqd < 25:
-            rqd_etki = 15
-        elif rqd < 50:
-            rqd_etki = 10
-        else:
-            rqd_etki = 5
-
-        katman_tork = baz + spt_etki + ucs_etki + rqd_etki
-        max_tork = max(max_tork, katman_tork)
-
-    cap_carpani = cap_mm / 1000.0
-    return round(max_tork * cap_carpani, 1)
-
-
 def stabilite_riski(zemin_tipi: str, kohezyon: str, yeralti_suyu: float, spt: float) -> str:
     if zemin_tipi in ["Kum", "Çakıl"] and yeralti_suyu >= 0:
         return "Yüksek"
@@ -54,6 +26,51 @@ def stabilite_riski(zemin_tipi: str, kohezyon: str, yeralti_suyu: float, spt: fl
     if zemin_tipi == "Dolgu":
         return "Orta"
     return "Düşük"
+
+
+def stabilite_skoru(zemin_tipi: str, kohezyon: str, spt: float, yeralti_suyu: float):
+    skor = 0
+    if zemin_tipi in ["Kum", "Çakıl", "Dolgu"]:
+        skor += 35
+    if kohezyon == "Kohezyonsuz":
+        skor += 25
+    if spt <= 15:
+        skor += 20
+    elif spt <= 30:
+        skor += 10
+    if yeralti_suyu > 0:
+        skor += 15
+    skor = min(skor, 100)
+    if skor < 30:
+        durum = "Stabil"
+    elif skor < 60:
+        durum = "Orta Risk"
+    else:
+        durum = "Yüksek Risk"
+    return skor, durum
+
+
+def gerekli_tork_hesapla(df: pd.DataFrame, cap_mm: float) -> float:
+    max_tork = 0
+    for _, row in df.iterrows():
+        baz = zemin_tork_katsayisi(row["Zemin Tipi"])
+        spt = float(row["SPT"]) if pd.notna(row["SPT"]) else 0
+        ucs = float(row["UCS (MPa)"]) if pd.notna(row["UCS (MPa)"]) else 0
+        rqd = float(row["RQD"]) if pd.notna(row["RQD"]) else 0
+        spt_etki = min(spt, 60) * 0.8
+        ucs_etki = ucs * 1.8
+        if rqd == 0:
+            rqd_etki = 0
+        elif rqd < 25:
+            rqd_etki = 15
+        elif rqd < 50:
+            rqd_etki = 10
+        else:
+            rqd_etki = 5
+        katman_tork = baz + spt_etki + ucs_etki + rqd_etki
+        max_tork = max(max_tork, katman_tork)
+    cap_carpani = cap_mm / 1000.0
+    return round(max_tork * cap_carpani, 1)
 
 
 def casing_metre_hesapla(df: pd.DataFrame) -> float:
@@ -69,11 +86,9 @@ def casing_metre_hesapla(df: pd.DataFrame) -> float:
 
 def tahmini_kazik_suresi(df: pd.DataFrame, cap_mm: float, kazik_boyu: float, casing_m: float) -> float:
     sure = 1.5
-
     for _, row in df.iterrows():
         kalinlik = row["Bitiş (m)"] - row["Başlangıç (m)"]
         zemin = row["Zemin Tipi"]
-
         if zemin in ["Dolgu", "Kil", "Silt"]:
             hiz = 6.0
         elif zemin in ["Kum", "Çakıl"]:
@@ -84,129 +99,39 @@ def tahmini_kazik_suresi(df: pd.DataFrame, cap_mm: float, kazik_boyu: float, cas
             hiz = 1.8
         else:
             hiz = 1.2
-
         sure += kalinlik / hiz
-
         if row.get("Uç Önerisi", "") != "Standart zemin ucu yeterli":
             sure += 0.3
-
     if cap_mm >= 1000:
         sure += 1.0
     elif cap_mm >= 800:
         sure += 0.6
-
     sure += casing_m * 0.08
-
     if kazik_boyu >= 20:
         sure += 0.7
-
     return round(sure, 1)
 
 
-def mazot_tahmini(gerekli_tork: float, kazik_boyu: float, yakit_sinifi: str = "Orta"):
-    metre_basi = 8 + gerekli_tork * 0.08
-
-    if yakit_sinifi == "Düşük":
-        metre_basi *= 0.9
-    elif yakit_sinifi == "Yüksek":
-        metre_basi *= 1.15
-
-    metre_basi = round(metre_basi, 1)
+def mazot_tahmini(gerekli_tork: float, kazik_boyu: float):
+    metre_basi = round(8 + gerekli_tork * 0.08, 1)
     toplam = round(metre_basi * kazik_boyu, 1)
     return metre_basi, toplam
 
 
-def ekonomik_uygunluk(row, gerekli_tork):
-    oran = row["Tork (kNm)"] / max(gerekli_tork, 1)
+def makina_uygunluk(row, gerekli_tork, kazik_boyu, kazik_capi, casing_gerekli):
+    max_derinlik = float(row.get("Max Derinlik (m)", 0))
+    max_cap = float(row.get("Max Çap (mm)", 0))
+    tork = float(row.get("Tork (kNm)", 0))
+    casing_yeteneği = row.get("Casing Yeteneği", "Hayır")
 
-    if oran > 2.2:
-        return "Teknik olarak uygun ama ekonomik değil"
-    if oran < 1.0:
-        return "Sınırda ekonomik"
-    return "Ekonomik olarak uygun"
-
-
-def saha_dogrulama_gerekli(yeralti_suyu, dar_alan, yakin_yapi, kritik_risk_sayisi):
-    if yakin_yapi == "Evet" or dar_alan == "Evet":
-        return "Evet"
-    if yeralti_suyu <= 3:
-        return "Evet"
-    if kritik_risk_sayisi >= 2:
-        return "Evet"
-    return "Hayır"
-
-
-def makina_uygunluk(row, gerekli_tork, kazik_boyu, kazik_capi, casing_gerekli, dar_alan=False, min_mast=10):
-    if row["Max Derinlik (m)"] < kazik_boyu:
+    if max_derinlik < kazik_boyu:
         return "Uygun Değil", "Derinlik yetersiz"
-
-    if row["Max Çap (mm)"] < kazik_capi:
+    if max_cap < kazik_capi:
         return "Uygun Değil", "Çap kapasitesi yetersiz"
-
-    if row["Tork (kNm)"] < gerekli_tork * 0.85:
+    if tork < gerekli_tork * 0.85:
         return "Uygun Değil", "Tork yetersiz"
-
-    if casing_gerekli and row["Casing Yeteneği"] == "Hayır":
+    if casing_gerekli and casing_yeteneği == "Hayır":
         return "Şartlı Uygun", "Makine yeterli ancak casing yeteneği yok"
-
-    if dar_alan and row["Dar Alan Uygunluğu"] == "Hayır":
-        return "Şartlı Uygun", "Dar alan çalışmasına uygun değil"
-
-    if row["Mast Yüksekliği (m)"] < min_mast:
-        return "Riskli", "Mast yüksekliği sınırda"
-
-    if row["Tork (kNm)"] < gerekli_tork:
+    if tork < gerekli_tork:
         return "Riskli", "Tork sınırda"
-
     return "Uygun", "Teknik olarak yeterli"
-
-def stabilite_skoru(zemin_tipi, kohezyon, spt, yeralti_suyu):
-    
-    skor = 0
-
-    if zemin_tipi in ["Kum", "Çakıl"]:
-        skor += 40
-
-    if kohezyon == "Kohezyonsuz":
-        skor += 30
-
-    if spt < 15:
-        skor += 20
-
-    if yeralti_suyu > 0:
-        skor += 10
-
-    if skor < 30:
-        return skor, "Stabil"
-    elif skor < 60:
-        return skor, "Orta Risk"
-    else:
-        return skor, "Yüksek Risk"
-        
-def stabilite_skoru(zemin_tipi: str, kohezyon: str, spt: float, yeralti_suyu: float):
-    skor = 0
-
-    if zemin_tipi in ["Kum", "Çakıl", "Dolgu"]:
-        skor += 35
-
-    if kohezyon == "Kohezyonsuz":
-        skor += 25
-
-    if spt <= 15:
-        skor += 20
-    elif spt <= 30:
-        skor += 10
-
-    if yeralti_suyu > 0:
-        skor += 15
-
-    skor = min(skor, 100)
-
-    if skor < 30:
-        durum = "Stabil"
-    elif skor < 60:
-        durum = "Orta Risk"
-    else:
-        durum = "Yüksek Risk"
-
-    return skor, durum
