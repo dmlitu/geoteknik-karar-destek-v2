@@ -207,16 +207,19 @@ with tab5:
             st.write(f"**SPT:** {kritik_katman['SPT']}  |  **UCS:** {kritik_katman['UCS (MPa)']} MPa  |  **RQD:** {kritik_katman['RQD']}")
 
             st.markdown("---")
-            pdf_buffer = pdf_olustur(
-                firma_adi=st.session_state.company_name,
-                proje_adi=proje_adi, proje_kodu=proje_kodu, saha_kodu=saha_kodu,
-                is_tipi=is_tipi, kazik_boyu=kazik_boyu, kazik_capi=kazik_capi,
-                kazik_adedi=kazik_adedi, yeralti_suyu=yeralti_suyu,
-                gerekli_tork=gerekli_tork, casing_durum=casing_durum,
-                casing_metre=casing_metre, sure_saat=sure_saat,
-                metre_basi_mazot=metre_basi_mazot, toplam_mazot=toplam_mazot,
-                genel_uc=genel_uc, kritik_katman=kritik_katman
-            )
+          pdf_buffer = pdf_olustur(
+            firma_adi=st.session_state.company_name,
+            proje_adi=proje_adi, proje_kodu=proje_kodu, saha_kodu=saha_kodu,
+            is_tipi=is_tipi, kazik_boyu=kazik_boyu, kazik_capi=kazik_capi,
+            kazik_adedi=kazik_adedi, yeralti_suyu=yeralti_suyu,
+            gerekli_tork=gerekli_tork, casing_durum=casing_durum,
+            casing_metre=casing_metre, sure_saat=sure_saat,
+            metre_basi_mazot=metre_basi_mazot, toplam_mazot=toplam_mazot,
+            genel_uc=genel_uc, kritik_katman=kritik_katman,
+            zemin_df=zemin_df,
+            makina_sonuclari=makina_sonuclari,
+            casing_gerekce=None
+          )
             st.download_button(
                 label="📄 PDF Rapor Oluştur",
                 data=pdf_buffer,
