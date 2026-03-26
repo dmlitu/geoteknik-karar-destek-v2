@@ -7,12 +7,13 @@ from modules.calculations import (
     stabilite_riski,
     stabilite_skoru,
     casing_metre_hesapla,
+    casing_ihtiyaci_detayli,
     tahmini_kazik_suresi,
     mazot_tahmini,
     makina_uygunluk,
 )
 from modules.reporting import pdf_olustur
-from modules.recommendations import uc_oneri, casing_oneri
+from modules.recommendations import uc_oneri, casing_oneri_basit
 from modules.ui_helpers import (
     default_zemin_logu,
     default_makine_parki,
@@ -125,7 +126,7 @@ with tab4:
     st.dataframe(kutuphane[secilen_set], use_container_width=True)
     if st.button("Bu seti Makine Parkına Yükle"):
         st.session_state.aktif_makine_parki = kutuphane[secilen_set].copy()
-        st.success("Seçilen set makine parkına yüklendi. Makine Parkı sekmesinden kontrol edebilirsin.")
+        st.success("Seçilen set makine parkına yüklendi.")
 
 with tab5:
     st.subheader("Analiz Sonucu")
@@ -141,14 +142,17 @@ with tab5:
         kritik_katman = zemin_df.sort_values(by="Zorluk Skoru", ascending=False).iloc[0]
 
         skorlar = zemin_df.apply(
-            lambda row: stabilite_skoru(row["Zemin Tipi"], row["Kohezyon Durumu"], row["SPT"], yeralti_suyu)[0],
+            lambda row: stabilite_skoru(
+                row["Zemin Tipi"], row["Kohezyon Durumu"], row["SPT"], yeralti_suyu
+            )[0],
             axis=1
         )
         ortalama_stabilite_skoru = round(skorlar.mean(), 1)
 
         gerekli_tork = gerekli_tork_hesapla(zemin_df, kazik_capi)
-        casing_durum = casing_oneri(list(zemin_df["Stabilite Riski"]))
-        casing_gerekli = casing_durum == "Muhafaza borusu gerekli"
+        casing_durum, casing_gerekce, casing_gerekli = casing_ihtiyaci_detayli(
+            zemin_df, yeralti_suyu, kazik_boyu
+        )
         casing_metre = casing_metre_hesapla(zemin_df)
         sure_saat = tahmini_kazik_suresi(zemin_df, kazik_capi, kazik_boyu, casing_metre)
         metre_basi_mazot, toplam_mazot = mazot_tahmini(gerekli_tork, kazik_boyu)
@@ -163,7 +167,9 @@ with tab5:
 
         makina_sonuclari = makina_df.copy()
         makina_sonuclari[["Karar", "Gerekçe"]] = makina_sonuclari.apply(
-            lambda row: pd.Series(makina_uygunluk(row, gerekli_tork, kazik_boyu, kazik_capi, casing_gerekli)),
+            lambda row: pd.Series(
+                makina_uygunluk(row, gerekli_tork, kazik_boyu, kazik_capi, casing_gerekli)
+            ),
             axis=1
         )
 
@@ -188,7 +194,7 @@ with tab5:
             st.write(f"**Firma:** {st.session_state.company_name}")
             st.write(f"**Proje:** {proje_adi}  |  **Kod:** {proje_kodu}  |  **Saha:** {saha_kodu}")
             st.write(f"**İş Tipi:** {is_tipi}  |  **Lokasyon:** {lokasyon}")
-            st.write(f"**Kazık Boyu:** {kazik_boyu} m  |  **Çap:** {kazik_capi} mm  |  **Adet:** {kazik_adedi}")
+            st.write(f"**Kazık Boyu:** {kazik_boyu} m  |  **Çap:** {kazik_capi} mm  |  **Adet:** {int(kazik_adedi)}")
             st.write(f"**Yeraltı Suyu:** {yeralti_suyu} m")
 
             st.markdown("### Teknik Öneriler")
@@ -200,6 +206,10 @@ with tab5:
             toplam_sure_gun = round((sure_saat * kazik_adedi) / 10, 1)
             st.write(f"**Toplam iş süresi:** {toplam_sure_gun} gün")
 
+            st.markdown("### Casing Değerlendirmesi")
+            for g in casing_gerekce:
+                st.write(f"• {g}")
+
         with right:
             st.markdown("### Kritik Zemin Katmanı")
             st.write(f"**Formasyon:** {kritik_katman['Formasyon']}")
@@ -207,19 +217,30 @@ with tab5:
             st.write(f"**SPT:** {kritik_katman['SPT']}  |  **UCS:** {kritik_katman['UCS (MPa)']} MPa  |  **RQD:** {kritik_katman['RQD']}")
 
             st.markdown("---")
-          pdf_buffer = pdf_olustur(
-            firma_adi=st.session_state.company_name,
-            proje_adi=proje_adi, proje_kodu=proje_kodu, saha_kodu=saha_kodu,
-            is_tipi=is_tipi, kazik_boyu=kazik_boyu, kazik_capi=kazik_capi,
-            kazik_adedi=kazik_adedi, yeralti_suyu=yeralti_suyu,
-            gerekli_tork=gerekli_tork, casing_durum=casing_durum,
-            casing_metre=casing_metre, sure_saat=sure_saat,
-            metre_basi_mazot=metre_basi_mazot, toplam_mazot=toplam_mazot,
-            genel_uc=genel_uc, kritik_katman=kritik_katman,
-            zemin_df=zemin_df,
-            makina_sonuclari=makina_sonuclari,
-            casing_gerekce=None
-          )
+
+            pdf_buffer = pdf_olustur(
+                firma_adi=st.session_state.company_name,
+                proje_adi=proje_adi,
+                proje_kodu=proje_kodu,
+                saha_kodu=saha_kodu,
+                is_tipi=is_tipi,
+                kazik_boyu=kazik_boyu,
+                kazik_capi=kazik_capi,
+                kazik_adedi=kazik_adedi,
+                yeralti_suyu=yeralti_suyu,
+                gerekli_tork=gerekli_tork,
+                casing_durum=casing_durum,
+                casing_metre=casing_metre,
+                sure_saat=sure_saat,
+                metre_basi_mazot=metre_basi_mazot,
+                toplam_mazot=toplam_mazot,
+                genel_uc=genel_uc,
+                kritik_katman=kritik_katman,
+                zemin_df=zemin_df,
+                makina_sonuclari=makina_sonuclari,
+                casing_gerekce=casing_gerekce,
+            )
+
             st.download_button(
                 label="📄 PDF Rapor Oluştur",
                 data=pdf_buffer,
@@ -228,6 +249,7 @@ with tab5:
             )
 
         st.markdown("---")
+
         uygun_sayi = (makina_sonuclari["Karar"] == "Uygun").sum()
         sartli_sayi = (makina_sonuclari["Karar"] == "Şartlı Uygun").sum()
         riskli_sayi = (makina_sonuclari["Karar"] == "Riskli").sum()
@@ -245,10 +267,12 @@ with tab5:
 
         st.markdown("### Makine Uygunluk Sonuçları")
         st.dataframe(
-            makina_sonuclari[["Makine Adı", "Makine Tipi", "Marka/Model",
-                               "Max Derinlik (m)", "Max Çap (mm)", "Tork (kNm)",
-                               "Casing Yeteneği", "Dar Alan Uygunluğu",
-                               "Yakıt Sınıfı", "Karar", "Gerekçe"]],
+            makina_sonuclari[[
+                "Makine Adı", "Makine Tipi", "Marka/Model",
+                "Max Derinlik (m)", "Max Çap (mm)", "Tork (kNm)",
+                "Casing Yeteneği", "Dar Alan Uygunluğu",
+                "Yakıt Sınıfı", "Karar", "Gerekçe"
+            ]],
             use_container_width=True
         )
 
