@@ -6,31 +6,32 @@ from reportlab.lib.units import cm
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 )
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import os
+import urllib.request
 
 
 def _font_kaydet():
     try:
-        font_yollari = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
-        ]
-        normal_bulundu = False
-        bold_bulundu = False
-        for yol in font_yollari:
-            if os.path.exists(yol) and "Bold" not in yol and not normal_bulundu:
-                pdfmetrics.registerFont(TTFont("DejaVu", yol))
-                normal_bulundu = True
-            elif os.path.exists(yol) and "Bold" in yol and not bold_bulundu:
-                pdfmetrics.registerFont(TTFont("DejaVu-Bold", yol))
-                bold_bulundu = True
-        if normal_bulundu and bold_bulundu:
-            return "DejaVu", "DejaVu-Bold"
+        font_path = "/tmp/DejaVuSans.ttf"
+        font_bold_path = "/tmp/DejaVuSans-Bold.ttf"
+
+        if not os.path.exists(font_path):
+            urllib.request.urlretrieve(
+                "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf",
+                font_path
+            )
+        if not os.path.exists(font_bold_path):
+            urllib.request.urlretrieve(
+                "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf",
+                font_bold_path
+            )
+
+        pdfmetrics.registerFont(TTFont("DejaVu", font_path))
+        pdfmetrics.registerFont(TTFont("DejaVu-Bold", font_bold_path))
+        return "DejaVu", "DejaVu-Bold"
     except Exception:
         pass
     return "Helvetica", "Helvetica-Bold"
@@ -111,21 +112,22 @@ def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
     story.append(t)
     story.append(Spacer(1, 10))
 
-    # 2. Teknik Özet
+    # 2. Teknik Ozet
     story.append(Paragraph("2. Teknik Ozet", alt_baslik_stil))
     ozet_data = [
         ["Parametre", "Deger", "Parametre", "Deger"],
         ["Gerekli Min. Tork", f"{gerekli_tork} kNm", "1 Kazik Suresi", f"{sure_saat} saat"],
         ["Muhafaza Borusu", casing_durum, "Tahmini Casing", f"{casing_metre} m"],
         ["Uc Onerisi", genel_uc, "Metre Basi Mazot", f"{metre_basi_mazot} L/m"],
-        ["Toplam Mazot/Kazik", f"{toplam_mazot} L", "Toplam Mazot", f"{round(toplam_mazot * kazik_adedi, 0)} L"],
+        ["Toplam Mazot/Kazik", f"{toplam_mazot} L", "Toplam Mazot",
+         f"{round(toplam_mazot * kazik_adedi, 0)} L"],
     ]
     t2 = Table(ozet_data, colWidths=[4.5*cm, 4.5*cm, 4.5*cm, 4.5*cm])
     t2.setStyle(tablo_stili("#0f766e"))
     story.append(t2)
     story.append(Spacer(1, 10))
 
-    # 3. Kritik Zemin Katmanı — güvenli erişim
+    # 3. Kritik Zemin Katmani
     story.append(Paragraph("3. Kritik Zemin Katmani", alt_baslik_stil))
 
     def safe_get(d, *keys):
