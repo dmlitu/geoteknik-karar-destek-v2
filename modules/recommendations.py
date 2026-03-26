@@ -14,3 +14,7 @@ def casing_oneri(risk_list):
     if orta >= 2:
         return "Muhafaza borusu şartlı önerilir"
     return "Muhafaza borusu gerekmeyebilir"
+
+
+def casing_oneri_basit(risk_list):
+    return casing_oneri(risk_list)
