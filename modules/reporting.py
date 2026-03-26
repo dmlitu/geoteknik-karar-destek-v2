@@ -25,6 +25,14 @@ def _font_kaydet():
     except Exception:
         pass
     return "Helvetica", "Helvetica-Bold"
+    
+    def _tr(metin: str) -> str:
+    """Türkçe karakterleri ASCII'ye çevirir — PDF uyumluluğu için."""
+    tablo = str.maketrans(
+        "çğıöşüÇĞİÖŞÜ",
+        "cgiosuCGIOSU"
+    )
+    return str(metin).translate(tablo)
    
 
 def pdf_olustur(firma_adi, proje_adi, proje_kodu, saha_kodu, is_tipi,
